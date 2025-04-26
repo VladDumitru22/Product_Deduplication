@@ -8,12 +8,12 @@ def clean_text(value):
         return ""
     
     value = str(value).lower()
-    value = value.replace("  ", " ")
+    value = value.replace(" ", "")
     return value
 
 
 opened_file = pd.read_parquet("veridion_product_deduplication_challenge.snappy.parquet")
-opened_file.to_csv("veridion_product_deduplication_challenge.snappy.csv")
 
 
-get_info(opened_file)
+print(clean_text(opened_file["unspsc"][0]))
+#get_info(opened_file)
