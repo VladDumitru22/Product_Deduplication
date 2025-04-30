@@ -12,7 +12,7 @@ def clean_text(value):
     
 
 
-def get_primary_keys(row):
+def get_primary_key(row):
     primary_key = {
         "product_indentifier": clean_text(row["product_identifier"]),
         "brand": clean_text(row["brand"]),
@@ -27,8 +27,8 @@ def get_primary_keys(row):
 
 
 primary_keys = []
-for indexm, row in opened_file.iterrows():
-    primary_key = get_primary_keys(row)
+for index, row in opened_file.iterrows():
+    primary_key = get_primary_key(row)
     primary_keys.append(primary_key)
 
 opened_file["primary_key"] = primary_keys
@@ -44,7 +44,19 @@ def compare_keys(key1, key2):
     else:
         return False
 
+groups = []
+used = set()
 
-
+for i in range(len(opened_file)):
+    if i in used:
+        continue
+    
+    group = [i]
+    for j in range(i + 1, len(opened_file)):
+        if j not in used and compare_keys(opened_file.at[i, "signature"], opened_file.at[j, "signature"]):
+            group.append(j)
+            used.add(j)
+    used.add(i)
+    groups.append(group)
+    
 print(clean_text(opened_file["unspsc"][0]))
-get_info(opened_file)
