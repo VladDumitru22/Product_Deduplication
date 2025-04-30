@@ -2,9 +2,6 @@ import pandas as pd
 
 opened_file = pd.read_parquet("veridion_product_deduplication_challenge.snappy.parquet")
 
-def get_info(file):
-    file.info()
-
 def clean_text(value):
     if pd.isna(value):
         return ""
@@ -32,7 +29,7 @@ def get_primary_keys(row):
 primary_keys = []
 for indexm, row in opened_file.iterrows():
     primary_key = get_primary_keys(row)
-    primary_key.append(primary_key)
+    primary_keys.append(primary_key)
 
 opened_file["primary_key"] = primary_keys
 
