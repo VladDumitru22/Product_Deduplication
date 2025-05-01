@@ -23,7 +23,8 @@ This Python application is designed to deduplicate product records from a datase
    ```
 3. Install the required dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install pandas numpy rapidfuzz
+
    ```
 4. Run the script:
    ```bash
