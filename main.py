@@ -58,5 +58,29 @@ for i in range(len(opened_file)):
             used.add(j)
     used.add(i)
     groups.append(group)
-    
-print(clean_text(opened_file["unspsc"][0]))
+
+final_rows = []
+
+for gorup in groups:
+    temp_opened_file = opened_file.loc[group]
+    row ={}
+
+    for column in opened_file.columns:
+        if column == "primary_key":
+            continue
+        
+        values = []
+        for value in temp_opened_file[column]:
+            if value not in values and value is not None and value != "":
+                values.append(str(value))
+        if len(values) == 1:
+            row[column] = values[0]
+        elif len(value) > 1:
+            row[column] = " || ".join(values)
+        else:
+            row[column] = ""
+        
+        final_rows.append(row)
+
+final_file = pd.DataFrame(final_rows)
+final_file = final_file.to_parquet("veridion_deduplicated.parquet", index=False)
