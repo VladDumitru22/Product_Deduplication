@@ -1,67 +1,73 @@
 import pandas as pd
+import numpy as np
+from rapidfuzz import fuzz
+
+def sow_changes(initial_file, final_file):
+    print(f"Rânduri inițiale: {len(initial_file)}")
+    print(f"Rânduri după deduplicare: {len(final_file)}")
+    print(f"Rânduri eliminate: {len(initial_file) - len(final_file)}")
+    
 
 opened_file = pd.read_parquet("veridion_product_deduplication_challenge.snappy.parquet")
 
 def clean_text(value):
-    if pd.isna(value):
+    if isinstance(value, (list, np.ndarray)):
+        if len(value) == 0:
+            return ""
+        value = value[0]
+
+    if pd.isna(value) or str(value).strip() == "":
         return ""
-    else:
-        value = str(value).lower()
-        value = value.replace(" ", "")
-        return value
+    
+    return str(value).strip().lower()
     
 
 
 def get_primary_key(row):
     primary_key = {
-        "product_indentifier": clean_text(row["product_identifier"]),
-        "brand": clean_text(row["brand"]),
-        "materials": clean_text(row["materials"]),
-        "form": clean_text(row["form"]),
-        "size": clean_text(row["size"]),
-        "color": clean_text(row["color"]),
-        "product_name": clean_text(row["product_name"])
+        "product_identifier": clean_text(row.get("product_identifier", "")),
+        "brand": clean_text(row.get("brand", "")),
+        "materials": clean_text(row.get("materials", "")),
+        "form": clean_text(row.get("form", "")),
+        "size": clean_text(row.get("size", "")),
+        "color": clean_text(row.get("color", "")),
+        "product_name": clean_text(row.get("product_name", ""))
     }
     return primary_key
 
 
 
-primary_keys = []
-for index, row in opened_file.iterrows():
-    primary_key = get_primary_key(row)
-    primary_keys.append(primary_key)
-
-opened_file["primary_key"] = primary_keys
+opened_file["signature"] = opened_file.apply(get_primary_key, axis=1)
 
 
-def compare_keys(key1, key2):
-    count = 0
+def fuzzy_match(key1, key2, threshold=85, min_matches=5):
+    matches = 0
     for key in key1:
-        if key1[key] == key2[key]:
-            count += 1
-    if count >= 5:
-        return True
-    else:
-        return False
+        if key1[key] and key2[key]:
+            score = fuzz.token_sort_ratio(key1[key], key2[key])
+            if score >= threshold:
+                matches += 1
+    return matches >= min_matches
 
 groups = []
-used = set()
+used = [False] * len(opened_file)
 
 for i in range(len(opened_file)):
-    if i in used:
+    if used[i]:
         continue
     
     group = [i]
+    key_i = opened_file.at[i, "signature"]
     for j in range(i + 1, len(opened_file)):
-        if j not in used and compare_keys(opened_file.at[i, "signature"], opened_file.at[j, "signature"]):
+        if not used[j] and fuzzy_match(key_i, opened_file.at[j, "signature"]):
             group.append(j)
-            used.add(j)
-    used.add(i)
+            used[j] = True
+    used[i] = True
     groups.append(group)
 
 final_rows = []
 
-for gorup in groups:
+for group in groups:
     temp_opened_file = opened_file.loc[group]
     row ={}
 
@@ -69,18 +75,12 @@ for gorup in groups:
         if column == "primary_key":
             continue
         
-        values = []
-        for value in temp_opened_file[column]:
-            if value not in values and value is not None and value != "":
-                values.append(str(value))
-        if len(values) == 1:
-            row[column] = values[0]
-        elif len(value) > 1:
-            row[column] = " || ".join(values)
-        else:
-            row[column] = ""
-        
-        final_rows.append(row)
+        values = temp_opened_file[column].dropna().astype(str).unique()
+        values = [v.strip() for v in values if v.strip() and v != "[]"]
+        row[column] = values[0] if len(values) == 1 else " || ".join(sorted(set(values)))
+    final_rows.append(row)
 
 final_file = pd.DataFrame(final_rows)
-final_file = final_file.to_parquet("veridion_deduplicated.parquet", index=False)
+final_file.to_parquet("veridion_deduplicated.parquet", index=False)
+
+sow_changes(opened_file, final_file)
